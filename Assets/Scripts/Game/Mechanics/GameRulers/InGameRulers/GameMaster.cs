@@ -16,6 +16,7 @@ public class GameMaster : MonoBehaviour
     [SerializeField] private int scoreAlienNumberParam = 500; //параметр для изменения максимального количества пришельцев в зависимости от очков
     [SerializeField] private double alienSpawnChanseParam = 0.9; //Параметр Шанса появления пришельца
     [SerializeField] private double heartSpawnChanseParam = 0.9995; // Параметр Шанса появления сердца
+    [SerializeField] private GameObject alienSquadPrefab;
 
     enum GameState // Энумерация для состояний игры
     {
@@ -97,22 +98,68 @@ public class GameMaster : MonoBehaviour
       Если подать номер пришельца то заспавнит его, иначе создаст случайного, в том числе если подать номер за пределами списка пришельцев*/
     private void SpawnAllien(Vector3? whereSpawn = null, int spawnNumber = -1)
     {
+        GameObject spawnedAlien;
         if (spawnNumber < 0 || spawnNumber > alienPrefab.Length - 1)
         {
             spawnNumber = Mathf.RoundToInt(UnityEngine.Random.Range(-0.49999f, alienPrefab.Length - 1 + 0.49999f));
         }
         if (whereSpawn != null)
         {
-            Instantiate(alienPrefab[spawnNumber], whereSpawn.Value, Quaternion.identity);
+            spawnedAlien = Instantiate(alienPrefab[spawnNumber], whereSpawn.Value, Quaternion.identity);
         }
         else
         {
             Vector3 placeToSpawn = mainCam.ScreenToWorldPoint(new Vector3(mainCam.pixelWidth * UnityEngine.Random.Range(0.1f, 0.9f), mainCam.pixelHeight * UnityEngine.Random.Range(0.1f, 0.9f), 0));
-            Instantiate(alienPrefab[spawnNumber], new Vector3(placeToSpawn.x, placeToSpawn.y, 0), Quaternion.identity);
+            spawnedAlien = Instantiate(alienPrefab[spawnNumber], new Vector3(placeToSpawn.x, placeToSpawn.y, 0), Quaternion.identity);
         }
+        totalAlienNumber++;
+        spawnedAlien.GetComponent<AlienScript>().ImBangedSelfEvent += GameMaster_ImBangedSelfEvent;
+        spawnedAlien.GetComponent<AlienScript>().ImDestroidEvent += GameMaster_ImDestroidEvent;
     }
+
+    private void SpawnAlienSquad(int aliensInSpawnedSquad = 3, Vector3? whereSpawn = null)
+    {
+        GameObject spawnedAlienSquad;
+        alienSquadPrefab.GetComponent<AlienSquadScript>().aliensInSquad = aliensInSpawnedSquad;
+        if (whereSpawn != null)
+        {
+            spawnedAlienSquad = Instantiate(alienSquadPrefab, whereSpawn.Value, Quaternion.identity);
+        }
+        else
+        {
+            Vector3 placeToSpawn = mainCam.ScreenToWorldPoint(new Vector3(mainCam.pixelWidth * UnityEngine.Random.Range(0.1f, 0.9f), mainCam.pixelHeight * UnityEngine.Random.Range(0.1f, 0.9f), 0));
+            spawnedAlienSquad = Instantiate(alienSquadPrefab, new Vector3(placeToSpawn.x, placeToSpawn.y, 0), Quaternion.identity);
+        }
+        totalAlienNumber += aliensInSpawnedSquad;
+        spawnedAlienSquad.GetComponent<AlienSquadScript>().SquadIsReady += GameMaster_SquadIsReady;
+    }
+
+    private void GameMaster_SquadIsReady(GameObject obj)
+    {
+        for (int alienInSquad = 0; alienInSquad < obj.transform.childCount; alienInSquad++)
+        {
+            AlienScript alienScriptOfAlienInSquad = obj.transform.GetChild(alienInSquad).GetComponent<AlienScript>();
+            alienScriptOfAlienInSquad.ImBangedSelfEvent += GameMaster_ImBangedSelfEvent;
+            alienScriptOfAlienInSquad.ImDestroidEvent += GameMaster_ImDestroidEvent;
+        }
+        obj.GetComponent<AlienSquadScript>().SquadIsReady -= GameMaster_SquadIsReady;
+    }
+
+    private void GameMaster_ImDestroidEvent(GameObject obj)
+    {
+        totalAlienNumber--;
+        obj.GetComponent<AlienScript>().ImBangedSelfEvent -= GameMaster_ImBangedSelfEvent;
+        obj.GetComponent<AlienScript>().ImDestroidEvent -= GameMaster_ImDestroidEvent;
+    }
+
+    private void GameMaster_ImBangedSelfEvent(GameObject obj)
+    {
+        ChangeHealth(obj.GetComponent<AlienScript>().Damage);
+        obj.GetComponent<AlienScript>().ImBangedSelfEvent -= GameMaster_ImBangedSelfEvent;
+    }
+
     /*Функция для появления сердец в заданной точке 
-      При подаче вектора спавнит сердце в данной точке иначе спавнит сердце в случайной точке на экране*/
+ При подаче вектора спавнит сердце в данной точке иначе спавнит сердце в случайной точке на экране*/
     private void SpawnHeart(Vector3? whereSpawn = null)
     {
         if (whereSpawn != null)
@@ -138,12 +185,20 @@ public class GameMaster : MonoBehaviour
             Debug.Log("Game over !!!");
             inGameUI.ShowTextLabel("Game Over");
             ChangeGameSpeed(SpeedAffector.Gameover);
+            foreach (ParticleSystem particle in FindObjectsOfType<ParticleSystem>())
+            {
+                particle.Stop();
+            }
             FindObjectsOfType<ShootableObject>();
             foreach (ShootableObject shootable in FindObjectsOfType<ShootableObject>())
             {
                 Destroy(shootable.gameObject);
             }
-            gameOvered?.Invoke(score, (int)playTime);
+            foreach (ParticleSystem particle in FindObjectsOfType<ParticleSystem>())
+            {
+                Destroy(particle.gameObject);
+            }
+                gameOvered?.Invoke(score, (int)playTime);
         }
     }
     /*Функция для изменения очков
@@ -222,11 +277,27 @@ public class GameMaster : MonoBehaviour
                     Shoot();
 
                 }
+                //========================================================
+                if (Input.GetMouseButtonDown(1)) // Клик при ЛКМ
+                {
+                    Instantiate(alienSquadPrefab, new Vector3(mainCam.ScreenToWorldPoint(Input.mousePosition).x, mainCam.ScreenToWorldPoint(Input.mousePosition).y, 0), Quaternion.identity);
+
+                }
+                //========================================================
+
 
                 if (UnityEngine.Random.value > alienSpawnChanseParam && totalAlienNumber < maxAliensNumber) //Появление пришельца с некоторым шансом и если пришельцев еще не максимум
-                {                   
-                    SpawnAllien();
+                {
+                    int tryedAliensInSquad = Mathf.RoundToInt(UnityEngine.Random.Range(2, 5));
+                    if (totalAlienNumber + tryedAliensInSquad <= maxAliensNumber && UnityEngine.Random.value < 0.5 * difficultyParam)
+                    {
+                        SpawnAlienSquad(tryedAliensInSquad);
 
+                    }
+                    else
+                    {
+                        SpawnAllien();
+                    }
                 }
                 if (UnityEngine.Random.value > heartSpawnChanseParam) // Появление сердца с некоторым шансом
                 {

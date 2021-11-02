@@ -6,6 +6,7 @@ MonoImporter:
   defaultReferences:
   - mainCam: {instanceID: 0}
   - heartPrefab: {fileID: 2626717784318805984, guid: abef1c2ae2d996b49acac28909471ccf, type: 3}
+  - alienSquadPrefab: {fileID: 4669691169990307645, guid: fb7f05c3cf86f7a439dc9e70d68f1541, type: 3}
   executionOrder: 0
   icon: {instanceID: 0}
   userData: 
