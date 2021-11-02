@@ -17,6 +17,8 @@ public class GameMaster : MonoBehaviour
     [SerializeField] private double alienSpawnChanseParam = 0.9; //Параметр Шанса появления пришельца
     [SerializeField] private double heartSpawnChanseParam = 0.9995; // Параметр Шанса появления сердца
     [SerializeField] private GameObject alienSquadPrefab;
+    [SerializeField] private GameObject postProcessingPrefab;
+
 
     enum GameState // Энумерация для состояний игры
     {
@@ -44,13 +46,19 @@ public class GameMaster : MonoBehaviour
     private InGameUIManager inGameUI;
     private float playTime = 0;
     private float difficultyParam = 1;
+
+    private bool crowdingEnabled;
+
+    private GameObject damagingPostProcessor;
     void Start()
     {
         mainCam = Camera.main;
         Time.timeScale = 0;
         inGameUI = gameObject.GetComponent<InGameUIManager>();
+        damagingPostProcessor = Instantiate(postProcessingPrefab, new Vector3(0, 0, 0), Quaternion.identity);
+        damagingPostProcessor.gameObject.SetActive(false);
     }
-    public void StartGame(GameModel.Difficulty difficulty= GameModel.Difficulty.Medium)
+    public void StartGame(bool crowdingAllowed,GameModel.Difficulty difficulty= GameModel.Difficulty.Medium)
     {
         if (difficulty == GameModel.Difficulty.Easy)
         {
@@ -62,6 +70,7 @@ public class GameMaster : MonoBehaviour
         {
             difficultyParam = 3f;
         }
+        crowdingEnabled = crowdingAllowed;
         gameState = GameState.Playing;
         Time.timeScale = 1;
         health = Defaulthealth;
@@ -113,6 +122,10 @@ public class GameMaster : MonoBehaviour
             spawnedAlien = Instantiate(alienPrefab[spawnNumber], new Vector3(placeToSpawn.x, placeToSpawn.y, 0), Quaternion.identity);
         }
         totalAlienNumber++;
+        if (!crowdingEnabled)
+        {
+            spawnedAlien.GetComponent<Rigidbody2D>().bodyType = RigidbodyType2D.Kinematic;
+        }
         spawnedAlien.GetComponent<AlienScript>().ImBangedSelfEvent += GameMaster_ImBangedSelfEvent;
         spawnedAlien.GetComponent<AlienScript>().ImDestroidEvent += GameMaster_ImDestroidEvent;
     }
@@ -200,6 +213,10 @@ public class GameMaster : MonoBehaviour
             }
                 gameOvered?.Invoke(score, (int)playTime);
         }
+        if (Amount < 0)
+        {
+            StartCoroutine(damagingEffect());
+        }
     }
     /*Функция для изменения очков
       При определенном значении очков увеличивает максимально возможное значение пришельцев, а так же скорость игры*/
@@ -250,6 +267,22 @@ public class GameMaster : MonoBehaviour
     public void TelUImanagerToSwitchInGameMenu(bool switcher)
     {
         inGameUI.SwitchInGameMenu(switcher);
+    }
+    private IEnumerator damagingEffect()
+    {
+        while (true)
+        {
+            if (!damagingPostProcessor.gameObject.activeInHierarchy)
+            {
+                damagingPostProcessor.SetActive(true);
+                yield return new WaitForSecondsRealtime(0.1f);
+            }
+            else
+            {
+                damagingPostProcessor.SetActive(false);
+                yield break;
+            }
+        }
     }
     public IEnumerator Timer()
     {

@@ -22,7 +22,7 @@ public class GameCore : MonoBehaviour
 
     private void OutGameUI_GameStarted()
     {
-        gameMaster.StartGame(gameModel.difficulty);
+        gameMaster.StartGame(gameModel.enableCrowding, gameModel.difficulty);
         gameMaster.TelUImanagerToSwitchInGameMenu(true);
         outGameUI.SwitchMenu(false);
     }

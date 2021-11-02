@@ -65,6 +65,8 @@ public class GameModel
     public Difficulty difficulty { get; set; } = Difficulty.Medium;
     public List<Leader> Leaders = new List<Leader>();
 
+    public bool enableCrowding = true;
+
 
 
 }

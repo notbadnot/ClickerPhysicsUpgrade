@@ -16,6 +16,7 @@ public class OutGameUIManager : MonoBehaviour
     private MMenuCredits creditsMenu;
     private MMenuLeaderBoard leaderMenu;
     private GameOverMenuScript gameOverMenu;
+    private bool tempCrowding;
 
     public int tempScore;
     public int tempTime;
@@ -141,7 +142,11 @@ public class OutGameUIManager : MonoBehaviour
         settingsMenu.PressAlienEvent += SettingsMenu_PressAlienEvent;
         settingsMenu.PressAcceptEvent += SettingsMenu_PressAcceptEvent;
         settingsMenu.PressCancelEvent += SettingsMenu_PressCancelEvent;
+        settingsMenu.CrowdingChangeEvent += SettingsMenu_CrowdingChangeEvent;
     }
+
+
+
     private void UnsubscribeToSettingsEvents()
     {
         settingsMenu.PressBabyEvent -= SettingsMenu_PressBabyEvent;
@@ -149,6 +154,12 @@ public class OutGameUIManager : MonoBehaviour
         settingsMenu.PressAlienEvent -= SettingsMenu_PressAlienEvent;
         settingsMenu.PressAcceptEvent -= SettingsMenu_PressAcceptEvent;
         settingsMenu.PressCancelEvent -= SettingsMenu_PressCancelEvent;
+        settingsMenu.CrowdingChangeEvent -= SettingsMenu_CrowdingChangeEvent;
+    }
+    private void SettingsMenu_CrowdingChangeEvent(bool obj)
+    {
+        tempCrowding = obj;
+        HighlitedDifficultyButton().Select();
     }
 
     private void SettingsMenu_PressCancelEvent()
@@ -162,6 +173,7 @@ public class OutGameUIManager : MonoBehaviour
     private void SettingsMenu_PressAcceptEvent()
     {
         gameModel.difficulty = tempDifficulty;
+        gameModel.enableCrowding = tempCrowding;
         startMenu.gameObject.SetActive(true);
         SubscribeToStartEvents();
         UnsubscribeToSettingsEvents();
@@ -185,7 +197,7 @@ public class OutGameUIManager : MonoBehaviour
 
     private void MainMenu_StartEvent()
     {
-        gameMaster.StartGame();
+        //gameMaster.StartGame();
         UnsubscribeToStartEvents();
         startMenu.gameObject.SetActive(false);
         GameStarted?.Invoke();
@@ -208,6 +220,9 @@ public class OutGameUIManager : MonoBehaviour
         
         HighlitedDifficultyButton().Select();
         tempDifficulty = gameModel.difficulty;
+
+        tempCrowding = gameModel.enableCrowding;
+        settingsMenu.gameObject.transform.Find("Panel").Find("Toggle").GetComponent<Toggle>().isOn = tempCrowding;
     }
     private void AddNewLeader(string leaderName, int score, int time)
     {
